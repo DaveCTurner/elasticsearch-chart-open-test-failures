@@ -408,5 +408,3 @@ main = do
         stroke
       surfaceWriteToPNG surface "test.png"
     return ()
-
-  -- withImageSurface FormatARGB32 1000 1000 $ \surface -
