@@ -87,17 +87,24 @@ instance FromJSON Issue where
     <*> v .: "created_at"
     <*> v .: "labels"
 
-issueRiskLevel :: Issue -> Int
-issueRiskLevel = go 0 . _issueLabels
+data RiskLevel
+  = LowRisk
+  | MediumRisk
+  | Blocker
+  | NeedsRisk
+  deriving (Show, Eq, Ord, Enum)
+
+issueRiskLevel :: Issue -> RiskLevel
+issueRiskLevel = go Nothing . _issueLabels
   where
-    go acc [] = if acc == 0 then 3 else acc
+    go acc [] = case acc of Nothing -> Blocker; Just rl -> rl
     go acc (l : ls) = go (step acc (_labelName l)) ls
 
     step acc = \case
-      "low-risk"    -> max acc 1
-      "medium-risk" -> max acc 2
-      "blocker"     -> max acc 3
-      "needs:risk"  -> max acc 4
+      "low-risk"    -> max acc (Just LowRisk)
+      "medium-risk" -> max acc (Just MediumRisk)
+      "blocker"     -> max acc (Just Blocker)
+      "needs:risk"  -> max acc (Just NeedsRisk)
       _             -> acc
 
 issueTeamNames :: Issue -> [T.Text]
@@ -166,7 +173,7 @@ renderPangoLabelMiddleRight l@PangoLabel{..} xRight yMiddle = do
 
 data TeamData = TeamData
   { _teamDataName       :: T.Text
-  , _teamDataIssueAges  :: M.Map Int [Double]
+  , _teamDataIssueAges  :: M.Map RiskLevel [Double]
   , _teamDataIssueCount :: Int
   , _teamDataNameLabel  :: PangoLabel
   }
@@ -222,7 +229,7 @@ main = do
             return $ M.unionsWith (M.unionWith (++)) (
               acc : [ M.singleton teamName (M.singleton riskLevel [issueAgeDays now issue])
                     | issue     <- issues
-                    , riskLevel <- [1 .. issueRiskLevel issue]
+                    , riskLevel <- [LowRisk .. issueRiskLevel issue]
                     , teamName <- issueTeamNames issue
                     ])
     )
@@ -316,11 +323,11 @@ main = do
         translate 0 (fromIntegral teamIssueCount * issueHeight)
 
         forM_ (M.toList issueCounts) $ \(riskLevel, issueAges) -> do
-          if | riskLevel == 1 -> setColor 0xef 0xfd 0x5f
-             | riskLevel == 2 -> setColor 0xed 0x70 0x14
-             | riskLevel == 3 -> setColor 0xff 0x80 0x80
-             | riskLevel == 4 -> setColor 0xc5 0xde 0xf5
-             | otherwise      -> error "unknown risk level"
+          case riskLevel of
+            LowRisk    -> setColor 0xef 0xfd 0x5f
+            MediumRisk -> setColor 0xed 0x70 0x14
+            Blocker    -> setColor 0xff 0x80 0x80
+            NeedsRisk  -> setColor 0xc5 0xde 0xf5
           moveTo 0 0
           forM_ (zip [(1::Int)..] issueAges) $ \(count, age) -> do
             lineTo (roundPixel (min age dayCount * dayWidth)) (roundPixel (negate $ fromIntegral (count - 1) * issueHeight))
