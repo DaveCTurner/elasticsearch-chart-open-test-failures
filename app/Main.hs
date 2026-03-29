@@ -369,7 +369,7 @@ main = do
       translate (margin + axisMarkWidth) margin
       do
         setSourceRGB 0.0 0.0 0.0
-        renderPangoLabelTopCentre titleLabel (fromIntegral imageWidth / 2) 0
+        renderPangoLabelTopCentre titleLabel (dayCount * dayWidth / 2) 0
         translate 0 titleHeight
       mapM_ renderTeam teamData
     surfaceWriteToPNG surface "test-failures.png"
