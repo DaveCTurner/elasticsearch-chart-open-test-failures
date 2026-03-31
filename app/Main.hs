@@ -14,7 +14,7 @@ import Data.String.Utils (strip)
 import Data.Time
 import Data.Char (isDigit)
 import Data.List (sort, stripPrefix)
-import Data.Maybe (mapMaybe)
+import Data.Maybe (mapMaybe, fromMaybe)
 import Text.Read (readMaybe)
 import qualified Data.Map.Strict as M
 import qualified Data.Set as S
@@ -106,7 +106,7 @@ data RiskLevel
 issueRiskLevel :: Issue -> RiskLevel
 issueRiskLevel = go Nothing . _issueLabels
   where
-    go acc [] = case acc of Nothing -> Blocker; Just rl -> rl
+    go acc [] = fromMaybe Blocker acc
     go acc (l : ls) = go (step acc (_labelName l)) ls
 
     step acc = \case
