@@ -10,27 +10,28 @@ import Control.Concurrent (threadDelay)
 import Control.Lens
 import Control.Monad
 import Data.Aeson
-import Data.String.Utils (strip)
-import Data.Time
 import Data.Char (isDigit)
 import Data.List (sort, stripPrefix)
 import Data.Maybe (mapMaybe, fromMaybe)
-import Text.Read (readMaybe)
-import qualified Data.Map.Strict as M
-import qualified Data.Set as S
+import Data.String.Utils (strip)
+import Data.Time
+import Graphics.Rendering.Cairo
+import Graphics.Rendering.Pango
 import Network.URI (escapeURIString, isUnreserved)
 import Network.Wreq
 import Options.Applicative hiding (header)
 import System.Directory
 import System.IO
-import Graphics.Rendering.Cairo
-import Graphics.Rendering.Pango
-import qualified Data.ByteString.Lazy as BL
+import Text.Read (readMaybe)
+
 import qualified Data.ByteString as B
+import qualified Data.ByteString.Lazy as BL
+import qualified Data.Map.Strict as M
+import qualified Data.Set as S
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as T
-import qualified System.Process as SP
 import qualified Options.Applicative as OA
+import qualified System.Process as SP
 
 data RunConfig = RunConfig
   { _runConfigRefreshData :: Bool
