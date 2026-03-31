@@ -17,6 +17,7 @@ import Data.List (sort, stripPrefix)
 import Data.Maybe (mapMaybe)
 import Text.Read (readMaybe)
 import qualified Data.Map.Strict as M
+import qualified Data.Set as S
 import Network.URI (escapeURIString, isUnreserved)
 import Network.Wreq
 import Options.Applicative hiding (header)
@@ -33,16 +34,24 @@ import qualified Options.Applicative as OA
 
 data RunConfig = RunConfig
   { _runConfigRefreshData :: Bool
+  , _runConfigTeamNames   :: [T.Text]
   } deriving (Show, Eq)
 
 runConfigParser :: Parser RunConfig
 runConfigParser = RunConfig
   <$> refreshDataParser
+  <*> teamNamesParser
   where
     refreshDataParser :: Parser Bool
     refreshDataParser = flag False True
         (  long "refresh-data"
         <> help "Retrieve data from Github")
+
+    teamNamesParser :: Parser [T.Text]
+    teamNamesParser = map T.pack <$> many (strOption
+        (  long "team"
+        <> metavar "TEAM_NAME"
+        <> help "Team name to include (repeatable)"))
 
 runConfigParserInfo :: ParserInfo RunConfig
 runConfigParserInfo = info (runConfigParser <**> helper)
@@ -183,6 +192,10 @@ main = do
   now <- getCurrentTime
   RunConfig{..} <- execParser runConfigParserInfo
 
+  let isSelectedTeamName = case _runConfigTeamNames of
+        [] -> \_ -> True
+        _  -> flip S.member $ S.fromList _runConfigTeamNames
+
   oldLastResultsPage <- (maximum . ((-1):) . mapMaybe parseResultsPageNum) <$> listDirectory "."
 
   lastResultsPage <- if _runConfigRefreshData
@@ -231,6 +244,7 @@ main = do
                     | issue     <- issues
                     , riskLevel <- [LowRisk .. issueRiskLevel issue]
                     , teamName <- issueTeamNames issue
+                    , isSelectedTeamName teamName
                     ])
     )
     M.empty
