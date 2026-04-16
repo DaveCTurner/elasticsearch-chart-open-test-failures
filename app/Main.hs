@@ -13,7 +13,6 @@ import Data.Aeson
 import Data.Char (isDigit)
 import Data.List (sort, stripPrefix)
 import Data.Maybe (mapMaybe, fromMaybe)
-import Data.String.Utils (strip)
 import Data.Time
 import Graphics.Rendering.Cairo
 import Graphics.Rendering.Pango
@@ -22,16 +21,16 @@ import Network.Wreq
 import Options.Applicative hiding (header)
 import System.Directory
 import System.IO
+import System.Process.Typed (proc, readProcessStdout_)
 import Text.Read (readMaybe)
 
-import qualified Data.ByteString as B
+import qualified Data.ByteString.Base64.Lazy as B64
 import qualified Data.ByteString.Lazy as BL
 import qualified Data.Map.Strict as M
 import qualified Data.Set as S
 import qualified Data.Text as T
-import qualified Data.Text.Encoding as T
+import qualified Data.Text.Encoding as TE
 import qualified Options.Applicative as OA
-import qualified System.Process as SP
 
 data RunConfig = RunConfig
   { _runConfigRefreshData :: Bool
@@ -201,17 +200,21 @@ main = do
 
   lastResultsPage <- if _runConfigRefreshData
     then do
-      token <- strip <$> SP.readProcess "security" ["find-generic-password", "-s", "github-recent-issues", "-w"] ""
+      token <- BL.toStrict
+            <$> B64.decodeLenient
+            <$> fromMaybe (error "GitHub keychain entry did not start with go-keyring-base64:")
+            <$> BL.stripPrefix "go-keyring-base64:"
+            <$> readProcessStdout_ (proc "security" ["find-generic-password", "-s", "gh:github.com", "-w"])
       let opts = defaults
             & header "Accept"        .~ ["application/vnd.github.v3+json"]
-            & header "Authorization" .~ [B.append "token " $ T.encodeUtf8 $ T.pack token]
+            & header "Authorization" .~ ["token " <> token]
           getResultsPages pageNum url = do
             when (pageNum > (10::Int)) $ threadDelay 1000000
             when (pageNum > (15::Int)) $ threadDelay 4000000
             searchResponse <- getWith opts url
             withFile ("results-page-" ++ show pageNum ++ ".json") WriteMode $ \h -> BL.hPutStr h $ searchResponse ^. responseBody
             case searchResponse ^? responseLink "rel" "next" . linkURL of
-              Just url' -> getResultsPages (pageNum + 1) $ T.unpack $ T.decodeUtf8 url'
+              Just url' -> getResultsPages (pageNum + 1) $ T.unpack $ TE.decodeUtf8 url'
               Nothing   -> return (pageNum + 1)
 
           getRepositoryResultsPages pageNum repository =

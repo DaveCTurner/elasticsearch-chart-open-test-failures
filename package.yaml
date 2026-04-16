@@ -21,6 +21,7 @@ description:         Please see the README on GitHub at <https://github.com/gith
 
 dependencies:
 - base >= 4.7 && < 5
+- base64-bytestring
 - aeson
 - cairo
 - containers
@@ -31,11 +32,10 @@ dependencies:
 - network-uri
 - optparse-applicative
 - pango
-- process
 - text
+- typed-process
 - time
 - wreq
-- MissingH
 
 ghc-options:
 - -Wall
