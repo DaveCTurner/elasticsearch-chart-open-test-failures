@@ -189,6 +189,9 @@ data TeamData = TeamData
   , _teamDataNameLabel  :: PangoLabel
   }
 
+resultsPageFileName :: Int -> String
+resultsPageFileName pageNum = "results-page-" ++ show pageNum ++ ".json"
+
 main :: IO ()
 main = do
   RunConfig{..} <- execParser runConfigParserInfo
@@ -229,19 +232,15 @@ main = do
         , "elastic/elasticsearch-serverless"
         ]
 
-      forM_ [nextFreePage..oldLastResultsPage] $ \pageNum -> do
-        let fileName = "results-page-" ++ show pageNum ++ ".json"
+      forM_ (map resultsPageFileName [nextFreePage..oldLastResultsPage]) $ \fileName -> do
         fileExists <- doesFileExist fileName
         when fileExists $ removeFile fileName
       return $ nextFreePage - 1
     else
       return oldLastResultsPage
 
-  allIssues <- fmap concat $ forM [0..lastResultsPage] $ \pageNum -> do
-    mSr <- decodeFileStrict $ "results-page-" ++ show pageNum ++ ".json"
-    case mSr of
-      Nothing -> error $ "failed to decode page " ++ show pageNum
-      Just (SearchResponseBody issues) -> return issues
+  allIssues <- fmap concat $ forM (map resultsPageFileName [0..lastResultsPage])
+    $ \fileName -> maybe (error $ "failed to decode page " ++ fileName) _srIssues <$> decodeFileStrict fileName
 
   forM_ allIssues $ \issue -> when (issueTeamNames issue == ["Missing"]) $ print issue
 
