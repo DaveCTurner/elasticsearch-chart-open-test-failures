@@ -126,10 +126,10 @@ issueTeamNames issue = if null kept then ["Missing"] else kept
            , "Team:" `T.isPrefixOf` labelName
            ]
 
--- | Age of the issue in days at @now@ (floating-point).
+-- | Age of the issue in days at @analysisTime@ (floating-point).
 issueAgeDays :: UTCTime -> Issue -> Double
-issueAgeDays now issue =
-  realToFrac (diffUTCTime now (_issueCreated issue)) / realToFrac nominalDay
+issueAgeDays analysisTime issue =
+  realToFrac (diffUTCTime analysisTime (_issueCreated issue)) / realToFrac nominalDay
 
 -- | Parse @results-page-0.json@ style names; only a digit sequence before @.json@ matches.
 parseResultsPageNum :: FilePath -> Maybe Int
@@ -191,7 +191,6 @@ data TeamData = TeamData
 
 main :: IO ()
 main = do
-  now <- getCurrentTime
   RunConfig{..} <- execParser runConfigParserInfo
 
   let isSelectedTeamName = case _runConfigTeamNames of
@@ -238,23 +237,26 @@ main = do
     else
       return oldLastResultsPage
 
-  issueTimesByTeamAndRisk <- M.map (M.map (reverse . sort)) <$> foldM
-    ( \acc pageNum -> do
-        mSr <- decodeFileStrict $ "results-page-" ++ show pageNum ++ ".json"
-        case mSr of
-          Nothing -> error $ "failed to decode page " ++ show pageNum
-          Just (SearchResponseBody issues) -> do
-            forM_ issues $ \issue -> when (issueTeamNames issue == ["Missing"]) $ print issue
-            return $ M.unionsWith (M.unionWith (++)) (
-              acc : [ M.singleton teamName (M.singleton riskLevel [issueAgeDays now issue])
-                    | issue     <- issues
-                    , riskLevel <- [LowRisk .. issueRiskLevel issue]
-                    , teamName <- issueTeamNames issue
-                    , isSelectedTeamName teamName
-                    ])
-    )
-    M.empty
-    [0..lastResultsPage]
+  allIssues <- fmap concat $ forM [0..lastResultsPage] $ \pageNum -> do
+    mSr <- decodeFileStrict $ "results-page-" ++ show pageNum ++ ".json"
+    case mSr of
+      Nothing -> error $ "failed to decode page " ++ show pageNum
+      Just (SearchResponseBody issues) -> return issues
+
+  forM_ allIssues $ \issue -> when (issueTeamNames issue == ["Missing"]) $ print issue
+
+  analysisTime <- case allIssues of
+    [] -> getCurrentTime
+    _  -> return $ maximum $ concatMap (\issue -> [_issueCreated issue, _issueUpdated issue]) allIssues
+
+  let issueTimesByTeamAndRisk = M.map (M.map (reverse . sort)) $
+        M.unionsWith (M.unionWith (++))
+          [ M.singleton teamName (M.singleton riskLevel [issueAgeDays analysisTime issue])
+          | issue     <- allIssues
+          , riskLevel <- [LowRisk .. issueRiskLevel issue]
+          , teamName  <- issueTeamNames issue
+          , isSelectedTeamName teamName
+          ]
 
   pangoContext <- cairoCreateContext . Just =<< cairoFontMapGetDefault
   titleFontDescription <- fontDescriptionFromString ("Sans Bold" :: String)
@@ -273,7 +275,7 @@ main = do
 
       pangoAxisLabel  = pangoLabel labelFontDescription
 
-  titleLabel <- pangoLabel titleFontDescription $ "Cumulative open test failures by age, per team and risk level - " ++ show (utctDay now)
+  titleLabel <- pangoLabel titleFontDescription $ "Cumulative open test failures by age, per team and risk level - " ++ show (utctDay analysisTime)
   ageAxisLabel <- pangoAxisLabel "Age (weeks)"
 
   let teamCount :: Int
