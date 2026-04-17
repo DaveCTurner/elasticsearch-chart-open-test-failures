@@ -84,6 +84,7 @@ data Issue = Issue
   , _issueNumber     :: Integer
   , _issueRepository :: T.Text
   , _issueCreated    :: UTCTime
+  , _issueUpdated    :: UTCTime
   , _issueLabels     :: [Label]
   } deriving (Show, Eq)
 
@@ -94,6 +95,7 @@ instance FromJSON Issue where
     <*> v .: "number"
     <*> v .: "repository_url"
     <*> v .: "created_at"
+    <*> v .: "updated_at"
     <*> v .: "labels"
 
 data RiskLevel
