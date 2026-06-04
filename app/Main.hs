@@ -101,8 +101,8 @@ instance FromJSON Issue where
 data RiskLevel
   = LowRisk
   | MediumRisk
-  | Blocker
   | NeedsRisk
+  | Blocker
   deriving (Show, Eq, Ord, Enum)
 
 issueRiskLevel :: Issue -> RiskLevel
@@ -347,8 +347,8 @@ main = do
           case riskLevel of
             LowRisk    -> setColor 0xef 0xfd 0x5f
             MediumRisk -> setColor 0xed 0x70 0x14
-            Blocker    -> setColor 0xff 0x80 0x80
             NeedsRisk  -> setColor 0xc5 0xde 0xf5
+            Blocker    -> setColor 0xff 0x00 0x00
           moveTo 0 0
           forM_ (zip [(1::Int)..] issueAges) $ \(count, age) -> do
             lineTo (roundPixel (min age dayCount * dayWidth)) (roundPixel (negate $ fromIntegral (count - 1) * issueHeight))
